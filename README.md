@@ -1,2 +1,1 @@
-# apollo-clock
-Digital clock with Apollo DA-2300 indicaotors
+# Digital clock with Apollo DA-2300 indicaotors
