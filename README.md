@@ -23,14 +23,14 @@ Work in progress.
 
 The firmware is built with Arduino IDE 2.
 
-NetworManager is used to connect to WiFi network and update the clock coontrols:
+NetworkManager is used to connect to WiFi network and update the clock controls:
 - the timezoe shift
 - the NTP server name
 - 12/24h display mode
 - should it show the hours leading 0 or not
-- brightnes (random blinks of individual digits to dim them)
+- brightness (random blinks of individual digits to dim them)
 
-When connected to WiFi it updates the time using NTP every 3000 seocnds.
+When connected to WiFi it updates the time using NTP every 3000 seconds.
 
 D3231 TwoWire interface is used for RTC.
 
