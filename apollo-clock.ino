@@ -39,8 +39,7 @@ unsigned char clock_leading_0;  // Show hour leading 0
 const int eeprom_addr=12;
 
 // Real time clock
-TwoWire w(0);
-DS3231 myRTC (w);
+DS3231 myRTC;
 
 // Initialize the network, and update the global configuration if
 // needed.
@@ -63,7 +62,7 @@ bool initialize_network()
   itoa(clock_tz, timezone_shift, 10);
 
   WiFiManager wm;
-  wm.resetSettings();
+  // wm.resetSettings();
 
   WiFiManagerParameter tz("timezone_shift", "Timezone shift", timezone_shift, 8);
   WiFiManagerParameter brightness("brightness", "Brightness", brightness_str, 8);
@@ -79,6 +78,7 @@ bool initialize_network()
 
   // Automatically connect using saved credentials,
   // if connection fails, it starts an access point with the name "NixieClock".
+  wm.setConfigPortalTimeout(60);
   bool res = wm.autoConnect("NixieClock"); // anonymous ap
 
   const char *str_val = tz.getValue();
@@ -138,6 +138,26 @@ bool initialize_network()
   return res;
 }
 
+void get_time_from_rtc()
+{
+  bool h12Flag;
+  bool pmFlag;
+  int h = myRTC.getHour(h12Flag, pmFlag);
+  int m = myRTC.getMinute();
+  int s = myRTC.getSecond();
+
+  struct tm tm;
+  tm.tm_hour = h;
+  tm.tm_min = m;
+  tm.tm_sec = s;
+
+  log_printf("set time from RTC: %02d:%02d:%02d\n");
+  struct timeval tv;
+  tv.tv_sec = mktime(&tm);
+  // Set current time
+  settimeofday(&tv, NULL);
+}
+
 // the setup function runs once when you press reset or power the board
 void setup()
 {
@@ -146,18 +166,24 @@ void setup()
   pinMode(RCK_PIN, OUTPUT);
   pinMode(SCK_PIN, OUTPUT);
   pinMode(ONE_PIN, OUTPUT);
-  // pinMode(LED_PIN, OUTPUT);
-  w.setPins(8, 9);
+
+  EEPROM.begin(100);
+  Wire.begin();
+
   // Read the EEPROM settings.
   clock_tz = (signed char)EEPROM.read(eeprom_addr);
   clock_brightness = EEPROM.read(eeprom_addr+1);
   clock_12 = EEPROM.read(eeprom_addr+2);
   clock_leading_0  = EEPROM.read(eeprom_addr+3);
+
+  log_printf("\ndoing setup: clock_tz=%d clock_brightnes=%d\n", clock_tz, clock_brightness);
   EEPROM.readString(eeprom_addr+4, ntpServerName, sizeof(ntpServerName)-1);
+
+  get_time_from_rtc();
 
   if (initialize_network()) {
     setSyncProvider(getNtpTime);
-    setSyncInterval(300);
+    setSyncInterval(3000);
   }
 }
 
@@ -219,25 +245,15 @@ void show_disply(int *display)
 // the loop function runs over and over again forever
 void loop()
 {
-  static int cnt;
-  cnt++;
   int clock_display[6];
 
-#if 0
-  digitalWrite(LED_PIN, HIGH);  // turn the LED on (HIGH is the voltage level)
-  delay(500);                   // wait
-  digitalWrite(LED_PIN, LOW);   // turn the LED off by making the voltage LOW
-  delay(500);                   // wait
-#endif
-	struct timeval tv;
-	// Read the current time
-	gettimeofday(&tv, NULL);
-	struct tm *tm = localtime(&tv.tv_sec);
+  struct timeval tv;
+  // Read the current time
+  gettimeofday(&tv, NULL);
+  struct tm *tm = localtime(&tv.tv_sec);
 
-  // By default show current time, reading it from RTC
-  bool h12Flag;
-  bool pmFlag;
-  int h = tm->tm_hour; // int h = myRTC.getHour(h12Flag, pmFlag);
+  // By default show current time
+  int h = tm->tm_hour;
   if (clock_12 && h > 12) {
     h -= 12;
   }
@@ -248,10 +264,10 @@ void loop()
     clock_display[0] = ' ';
   }
   clock_display[1] = h%10;
-  int m = tm->tm_min; // int m = myRTC.getMinute();
+  int m = tm->tm_min;
   clock_display[2] = m/10;
   clock_display[3] = m%10;
-  int s = tm->tm_sec;  // int s = myRTC.getSecond();
+  int s = tm->tm_sec;
   clock_display[4] = s/10;
   clock_display[5] = s%10;
 
@@ -283,18 +299,14 @@ time_t getNtpTime()
   IPAddress ntpServerIP; // NTP server's ip address
 
   while (Udp.parsePacket() > 0) ; // discard any previously received packets
-  Serial.println("Transmit NTP Request");
-  // get a random server from the pool
   WiFi.hostByName(ntpServerName, ntpServerIP);
-  Serial.print(ntpServerName);
-  Serial.print(": ");
-  Serial.println(ntpServerIP);
+  log_printf("Transmit NTP Request: %s\n", ntpServerName);
+  // get a random server from the pool
   sendNTPpacket(ntpServerIP);
   uint32_t beginWait = millis();
   while (millis() - beginWait < 1500) {
     int size = Udp.parsePacket();
     if (size >= NTP_PACKET_SIZE) {
-      Serial.println("Receive NTP Response");
       Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
       time_t secsSince1900;
       // convert four bytes starting at location 40 to a long integer
@@ -303,15 +315,19 @@ time_t getNtpTime()
       secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
       secsSince1900 |= (unsigned long)packetBuffer[43];
       secsSince1900 = secsSince1900 - 2208988800UL + clock_tz * SECS_PER_HOUR;
+      
+      log_printf("Receive NTP Response %d\n", secsSince1900);
+
       tm *ttm = localtime(&secsSince1900);
       myRTC.setSecond(ttm->tm_sec);
       myRTC.setMinute(ttm->tm_min);
       myRTC.setHour(ttm->tm_hour);
+ 
       return secsSince1900;
     }
   }
-  Serial.println("No NTP Response :-(");
-  return 0; // return 0 if unable to get the time
+  log_printf("No NTP Response :-(\n");
+  return 0;
 }
 
 // send an NTP request to the time server at the given address
