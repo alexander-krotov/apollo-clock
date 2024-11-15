@@ -17,6 +17,10 @@ https://youtu.be/Xn6VzxSFZeI
 Hardware schematics:
 https://oshwlab.com/alexander.krotov/micronixie
 
+References to components:
+- Apollo DA-2300 https://www.tube-tester.com/sites/nixie/dat_arch/Numitron_Apollo.pdf
+- ESP32 C3 super mini https://dl.artronshop.co.th/ESP32-C3%20SuperMini%20datasheet.pdf
+
 # Software
 
 Work in progress.
@@ -41,3 +45,8 @@ Current status:
 - NTP works
 - storing the configuration in CMOS - does not work
 - DS3231 interface - does not work
+
+References to software components:
+- NetworkManager 
+- D3231
+- GyverPortal https://github.com/GyverLibs/GyverPortal
