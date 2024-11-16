@@ -26,13 +26,15 @@ References to components:
 Work in progress.
 
 The firmware is built with Arduino IDE 2.
+WifiManager is used to connect to WiFi network.
 
-NetworkManager is used to connect to WiFi network and update the clock controls:
+Web GUI is build with GyverPortal and updates the clock controls:
 - the timezoe shift
 - the NTP server name
 - 12/24h display mode
 - should it show the hours leading 0 or not
 - brightness (random blinks of individual digits to dim them)
+- sets the time (manually) 
 
 When connected to WiFi it updates the time using NTP every 3000 seconds.
 
@@ -40,13 +42,9 @@ D3231 TwoWire interface is used for RTC.
 
 74hc595 shift registers are programmed via 3 pins (nothing fancy there).
 
-Current status:
-- display works
-- NTP works
-- storing the configuration in CMOS - does not work
-- DS3231 interface - does not work
+Current status: still working on the Web GUI, everything else works.
 
 References to software components:
-- NetworkManager 
-- D3231
+- WiFi Manager https://github.com/tzapu/WiFiManager
+- D3231 https://github.com/NorthernWidget/DS3231
 - GyverPortal https://github.com/GyverLibs/GyverPortal
