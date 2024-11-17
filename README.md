@@ -36,6 +36,8 @@ Web GUI is build with GyverPortal and updates the clock controls:
 - brightness (random blinks of individual digits to dim them)
 - sets the time (manually) 
 
+![clock text](https://github.com/alexander-krotov/apollo-clock/blob/main/config.png?raw=true)
+
 When connected to WiFi it updates the time using NTP every 3000 seconds.
 
 D3231 TwoWire interface is used for RTC.
