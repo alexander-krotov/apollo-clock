@@ -29,7 +29,7 @@ The firmware is built with Arduino IDE 2.
 WifiManager is used to connect to WiFi network.
 
 Web GUI is build with GyverPortal and updates the clock controls:
-- the timezoe shift
+- the timezone shift
 - the NTP server name
 - 12/24h display mode
 - should it show the hours leading 0 or not
@@ -46,5 +46,5 @@ D3231 TwoWire interface is used for RTC.
 
 References to software components:
 - WiFi Manager https://github.com/tzapu/WiFiManager
-- D3231 https://github.com/NorthernWidget/DS3231
+- DS3231 https://github.com/NorthernWidget/DS3231
 - GyverPortal https://github.com/GyverLibs/GyverPortal
