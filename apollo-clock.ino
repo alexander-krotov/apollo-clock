@@ -32,6 +32,9 @@ const int BLINK_TIME=50;
 // NTP update interval in seconds
 const int NTP_UPDATE_INTERVAL=3000;
 
+// Our fake TZ
+const struct timezone tz = {0, 0};
+
 // Clock global configuration.
 char ntpServerName[80] = "fi.pool.ntp.org";
 signed char clock_tz = 2; // Timezone shift (could be negative)
@@ -51,8 +54,7 @@ DS3231 myRTC;
 // Web interface
 GyverPortal ui;
 
-// Initialize the network, and update the global configuration if
-// needed.
+// Initialize the network.
 bool initialize_network()
 {
   WiFiManager wm;
@@ -67,29 +69,38 @@ bool initialize_network()
   return res;
 }
 
+// Set clock time to H:M:S
+void set_clock_time(unsigned int h, unsigned int m, unsigned int s)
+{
+  log_printf("set time: %02u:%02u:%02u\n", h, m, s);
+
+  // Check time sanity. Uninitialized RTC might give strange values.
+  if (h<24 && m<60 && s<60) {
+    struct timeval tv = {0};
+    tv.tv_sec = h*60*60+m*60+s;
+    // Set current time
+    settimeofday(&tv, &tz);
+  }
+}
+
+// Get time from RTC and set it as clock time.
 void get_time_from_rtc()
 {
   bool h12Flag;
   bool pmFlag;
-  int h = myRTC.getHour(h12Flag, pmFlag);
-  int m = myRTC.getMinute();
-  int s = myRTC.getSecond();
+  unsigned int h = myRTC.getHour(h12Flag, pmFlag);
+  unsigned int m = myRTC.getMinute();
+  unsigned int s = myRTC.getSecond();
 
-  struct tm tm;
-  tm.tm_hour = h;
-  tm.tm_min = m;
-  tm.tm_sec = s;
-
-  log_printf("set time from RTC: %02d:%02d:%02d\n");
-  struct timeval tv;
-  tv.tv_sec = mktime(&tm);
-  // Set current time
-  settimeofday(&tv, NULL);
+  log_printf("set time from RTC: %02u:%02u:%02u\n", h, m, s);
+  set_clock_time(h, m, s);
 }
 
 // the setup function runs once when you press reset or power the board
 void setup()
 {
+  Wire.begin();
+
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(SER_PIN, OUTPUT);
   pinMode(RCK_PIN, OUTPUT);
@@ -97,19 +108,14 @@ void setup()
   pinMode(ONE_PIN, OUTPUT);
 
   EEPROM.begin(100);
-  Wire.begin();
 
   read_eeprom_data();
 
   log_printf("\ndoing setup: clock_tz=%d clock_brightness=%d\n", clock_tz, clock_brightness);
 
-
   get_time_from_rtc();
 
   if (initialize_network()) {
-    setSyncProvider(getNtpTime);
-    setSyncInterval(NTP_UPDATE_INTERVAL);
-
     IPAddress myIP = WiFi.localIP();
     log_printf("AP IP address: %s\n", myIP.toString());
 
@@ -120,6 +126,7 @@ void setup()
   }
 }
 
+// Read the config data from EEPROM.
 void read_eeprom_data()
 {
   // Read the EEPROM settings.
@@ -134,6 +141,7 @@ void read_eeprom_data()
   EEPROM.commit();
 }
 
+// Write the config data to EEPROM.
 void write_eeprom_data()
 {
   EEPROM.write(eeprom_addr, clock_tz);
@@ -202,24 +210,28 @@ void show_disply(int *display, int *dots)
 // the loop function runs over and over again forever
 void loop()
 {
-  int clock_display[6];
-
   struct timeval tv;
+  struct timezone tz = {0};
   // Read the current time
-  gettimeofday(&tv, NULL);
+  gettimeofday(&tv, &tz);
   struct tm *tm = localtime(&tv.tv_sec);
 
   {
-    static long s;\
+    static time_t s;
     if (s!=tv.tv_sec) {
       s = tv.tv_sec;
       if (s%100 == 0) {
-        log_printf("LOOP %d:%02d:%02d\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
+        log_printf("LOOP sec=%lu\n", (unsigned long)s);
+        log_printf("LOOP %d:%02d:%02d %d-%d-%d %lu\n", tm->tm_hour, tm->tm_min, tm->tm_sec, tm->tm_mday, tm->tm_mon, tm->tm_year, s);
+      }
+
+      if (clock_use_ntp && s%NTP_UPDATE_INTERVAL==0) {
+        getNtpTime();
       }
     }
   }
 
-  ui.tick();
+  int clock_display[6];
 
   // By default show current time
   int h = tm->tm_hour;
@@ -277,6 +289,9 @@ void loop()
     show_disply(clock_display, clock_dots);
     delay( (r%(MAX_BRIGHTNESS-clock_brightness))*BLINK_TIME/MAX_BRIGHTNESS );
   }
+  
+  // Web UI tick.
+  ui.tick();
 }
 
 // Following code is derived from TimeNTP sample
@@ -307,12 +322,14 @@ time_t getNtpTime()
       secsSince1900 |= (unsigned long)packetBuffer[43];
       secsSince1900 = secsSince1900 - 2208988800UL + clock_tz * SECS_PER_HOUR;
       
-      log_printf("Receive NTP Response %d\n", secsSince1900);
+      log_printf("Receive NTP Response %lu\n", (unsigned long)secsSince1900);
 
       tm *ttm = localtime(&secsSince1900);
       myRTC.setSecond(ttm->tm_sec);
       myRTC.setMinute(ttm->tm_min);
       myRTC.setHour(ttm->tm_hour);
+
+      set_clock_time(ttm->tm_hour, ttm->tm_min, ttm->tm_sec);
  
       return secsSince1900;
     }
@@ -361,7 +378,7 @@ void build()
     GP_MAKE_BOX(GP.LABEL("Brightness:"); GP.SLIDER("clock_brightness", clock_brightness, 1, MAX_BRIGHTNESS););
     GP_MAKE_BOX(GP.LABEL("12/24 mode"); GP.SWITCH("clock_12", clock_12 ? true: false););
     GP_MAKE_BOX(GP.LABEL("Leading 0"); GP.SWITCH("clock_leading_0", clock_leading_0 ? true: false, 0););
-    GP_MAKE_BOX(GP.LABEL("Bar mode"); GP.SELECT("clock_bar_mode", "Always on, Sync, Async, Always off", clock_bar_mode););
+    GP_MAKE_BOX(GP.LABEL("Bar mode"); GP.SELECT("clock_bar_mode", "Always off, Async, Sync, Always on", clock_bar_mode););
     GP_MAKE_BOX(GP.LABEL("Use NTP"); GP.SWITCH("clock_use_ntp", clock_use_ntp ? true: false););
     GP_MAKE_BOX(GP.LABEL("Use RTC"); GP.SWITCH("clock_use_rtc", clock_use_rtc ? true: false, 0););
     GP_MAKE_BOX(GP.LABEL("NTP Server name: "); GP.TEXT("clock_ntp_server", "local NTP server if you have", ntpServerName, "", sizeof(ntpServerName)-1););
@@ -372,9 +389,13 @@ void build()
 
   GP.FORM_BEGIN("/settime");
  
-  struct timeval td;
-  gettimeofday(&td, NULL);
-  GPtime gptime (td.tv_sec);
+  time_t t = time(NULL);
+  tm *ttm = localtime(&t);
+  myRTC.setSecond(ttm->tm_sec);
+  myRTC.setMinute(ttm->tm_min);
+  myRTC.setHour(ttm->tm_hour);
+
+  GPtime gptime (ttm->tm_hour, ttm->tm_min, ttm->tm_sec);
 
   GP_MAKE_BLOCK_TAB(
     "Time",
@@ -449,15 +470,6 @@ void action(GyverPortal& p)
     myRTC.setMinute(gptime.minute);
     myRTC.setHour(gptime.second);
 
-    struct tm tm;
-    tm.tm_hour = gptime.hour;
-    tm.tm_min = gptime.minute;
-    tm.tm_sec = gptime.second;
-
-    struct timeval tv;
-    tv.tv_sec = mktime(&tm);
-    tv.tv_usec = 0;
-    // Set current time
-    settimeofday(&tv, NULL);
+    set_clock_time(gptime.hour, gptime.minute, gptime.second);
   }
 }
