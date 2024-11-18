@@ -44,8 +44,6 @@ D3231 TwoWire interface is used for RTC.
 
 74hc595 shift registers are programmed via 3 pins (nothing fancy there).
 
-Current status: still working on the Web GUI, everything else works.
-
 References to software components:
 - WiFi Manager https://github.com/tzapu/WiFiManager
 - D3231 https://github.com/NorthernWidget/DS3231
