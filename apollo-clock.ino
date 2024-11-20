@@ -20,8 +20,10 @@
 #define SCK_PIN 2
 #define ONE_PIN 1
 
-// ESP32 onboard LED pin
-#define LED_PIN 8
+// DS3231 pins and speeed
+#define SDA_PIN 8
+#define SCL_PIN 9
+#define WIRE_SPEED 100000
 
 // Maximum brightness level
 const int MAX_BRIGHTNESS=16;
@@ -48,6 +50,9 @@ unsigned char clock_use_rtc = true;  // Use RTC switch
 // Clock eeprom data address.
 const int eeprom_addr=12;
 
+// If we do not have WiFi we wait 60 seconds in the configuration portal.
+const int WIFI_MANAGER_TIMEOUT=60;
+
 // Real time clock
 DS3231 myRTC;
 
@@ -62,7 +67,7 @@ bool initialize_network()
 
   // Automatically connect using saved credentials,
   // if connection fails, it starts an access point with the name "NixieClock".
-  wm.setConfigPortalTimeout(60);
+  wm.setConfigPortalTimeout(WIFI_MANAGER_TIMEOUT);
   bool res = wm.autoConnect("NixieClock");
   wm.stopWebPortal();
 
@@ -100,6 +105,7 @@ void get_time_from_rtc()
 void setup()
 {
   Wire.begin();
+  Wire.setClock(WIRE_SPEED);
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(SER_PIN, OUTPUT);
@@ -123,6 +129,10 @@ void setup()
     ui.attachBuild(build);
     ui.attach(action);
     ui.start();
+
+    if (clock_use_ntp) {
+      getNtpTime();
+    }
   }
 }
 
@@ -221,8 +231,7 @@ void loop()
     if (s!=tv.tv_sec) {
       s = tv.tv_sec;
       if (s%100 == 0) {
-        log_printf("LOOP sec=%lu\n", (unsigned long)s);
-        log_printf("LOOP %d:%02d:%02d %d-%d-%d %lu\n", tm->tm_hour, tm->tm_min, tm->tm_sec, tm->tm_mday, tm->tm_mon, tm->tm_year, s);
+        log_printf("LOOP %d:%02d:%02d\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
       }
 
       if (clock_use_ntp && s%NTP_UPDATE_INTERVAL==0) {
