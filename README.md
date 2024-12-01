@@ -1,6 +1,10 @@
 # Digital clock with Apollo DA-2300 indicators
 
-# Hardware
+## Setup instructions
+
+Easy setup instructions: https://github.com/alexander-krotov/apollo-clock/blob/main/setup.md
+
+## Hardware
 
 Clock is built around 6 Apollo DA-2300 vintage indicators. The indicators are very energy inefficient, sinc a lot of current (around 15mA per segment) and require direct drive.
 ESP32 C3 super mini module drives the clock, it controls every individual segment via 6 74hc595 shift registers, each output bit is amplified with 6 uln2803 darlington transistor arrays.
@@ -21,9 +25,7 @@ References to components:
 - Apollo DA-2300 https://www.tube-tester.com/sites/nixie/dat_arch/Numitron_Apollo.pdf
 - ESP32 C3 super mini https://dl.artronshop.co.th/ESP32-C3%20SuperMini%20datasheet.pdf
 
-# Software
-
-Work in progress.
+## Software
 
 The firmware is built with Arduino IDE 2.
 WifiManager is used to connect to WiFi network.
