@@ -123,17 +123,21 @@ void setup()
 
   if (initialize_network()) {
     IPAddress myIP = WiFi.localIP();
-    log_printf("AP IP address: %s\n", myIP.toString());
+    String ip_addr_str = myIP.toString();
+    log_printf("AP IP address: %s\n", ip_addr_str.c_str());
+    run_string_on_display(ip_addr_str.c_str());
 
     // start server portal
     ui.attachBuild(build);
     ui.attach(action);
     ui.start();
+    log_printf("setup ui started\n");
 
     if (clock_use_ntp) {
       getNtpTime();
     }
   }
+  log_printf("setup done\n");
 }
 
 // Read the config data from EEPROM.
@@ -303,6 +307,30 @@ void loop()
   ui.tick();
 }
 
+// Display string as running display string
+void run_string_on_display(const char *str)
+{
+    int display[6];
+    int clock_dots[6] = {0};
+    int len = strlen(str);
+
+    log_printf("run_string_on_display: str=%s len=%d\n", str, len);
+
+    for (int s=-6; s<=len; s++) {
+      for (int i=0; i<6; i++) {
+        if (i+s>=0 && i+s<len && str[i+s]>='0' && str[i+s]<='9') {
+          // character fitst to the display and it is betweern 0 and 9.
+          display[i] = str[i+s]-'0';
+        } else {
+          display[i] = ' ';
+        }
+      }
+
+      show_disply(display, clock_dots);
+      delay(500);
+    }
+}
+
 // Following code is derived from TimeNTP sample
 WiFiUDP Udp;
 unsigned int localPort = 8888;  // local port to listen for UDP packets
@@ -423,12 +451,16 @@ void action(GyverPortal& p)
 
   if (p.form("/update")) {
     int n;
+    bool update_time = false;
 
     log_printf("ACTION update\n");
 
     // Reed the new values, and check them for sanity.
     n = ui.getInt("clock_tz");
     if (n>=-12 && n<=12) {
+      if (n!=clock_tz) {
+        update_time = true;
+      }
       clock_tz = n;
     }
 
@@ -468,6 +500,15 @@ void action(GyverPortal& p)
     }
 
     write_eeprom_data();
+
+    if (update_time) {
+      // Timezone changed, we shoule change the system time.
+      if (clock_use_ntp) {
+        getNtpTime();
+      } else if (clock_use_rtc) {
+        get_time_from_rtc();
+      }
+    }
   }
 
   if (p.form("/settime")) {
