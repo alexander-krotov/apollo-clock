@@ -14,6 +14,11 @@
 #include <DS3231.h>
 #include <GyverPortal.h>
 
+// PCB version:
+// 1 - "reverse" pcb: indicator tubes are on the opposite side of the control components
+// 0 - "straight" pcb: indicator tubes are on the same side as the control components
+#define REVERSE 0
+
 // 74HC595 control pins
 #define SER_PIN 4
 #define RCK_PIN 3
@@ -98,7 +103,11 @@ void get_time_from_rtc()
   unsigned int s = myRTC.getSecond();
 
   log_printf("set time from RTC: %02u:%02u:%02u\n", h, m, s);
-  set_clock_time(h, m, s);
+
+  // Check time for sanity.
+  if (h<24 && m<60 && s<60) {
+    set_clock_time(h, m, s);
+  }
 }
 
 // the setup function runs once when you press reset or power the board
@@ -171,23 +180,38 @@ void write_eeprom_data()
 
 // DA-2300 segment control bits.
 //
-//   64
-// 2   128
-//   32
-// 4   16
-//   8
+//   64           4
+// 2   128   128     2
+//   32           8
+// 4   16     64    16
+//   8           32
+#if REVERSE
 static const int digits[] = {
-  2|4|8|16|64|128, // 0
-  16|128,          // 1
-  4|8|32|64|128,   // 2
-  8|16|32|64|128,  // 3
-  2|16|32|128,     // 4
-  2|8|16|32|64,    // 5
-  2|4|8|16|32,     // 6
-  16|64|128,       // 7
-  255<<1,          // 8
-  2|16|32|64|128   // 9
+  0b01111011, // 0
+  0b00001001, // 1
+  0b00110111, // 2
+  0b00011111, // 3
+  0b01001101, // 4
+  0b01011110, // 5
+  0b01111110, // 6
+  0b00001011, // 7
+  0b01111111, // 8
+  0b01001111  // 9
 };
+#else
+static const int digits[] = {
+  0b11011110, // 0
+  0b10010000, // 1
+  0b11101100, // 2
+  0b11111000, // 3
+  0b10110010, // 4
+  0b01111010, // 5
+  0b00111110, // 6
+  0b11010000, // 7
+  0b11111110, // 8
+  0b11110010  // 9
+};
+#endif
 
 // Display is 6 decimal digits.
 // If digit value is not 0-9 display blank value
@@ -197,7 +221,11 @@ void show_disply(int *display, int *dots)
 
   digitalWrite(RCK_PIN, LOW);
   for (int i=0; i<6; i++) {
+#if REVERSE
+    int d = display[5-i];
+#else
     int d = display[i];
+#endif
     if (d>=0 && d<=9) {
       // Translate digit to the segment bits
       d = digits[d];
@@ -205,10 +233,18 @@ void show_disply(int *display, int *dots)
       // Blank display
       d = 0;
     }
+
+    // Set the bar bit.
+#if REVERSE
+    if (dots[5-i]) {
+      d |= 128;
+    }
+#else
     if (dots[i]) {
-      // Set the bar bit.
       d |= 1;
     }
+#endif
+
 
     for (j=0; j<8; j++) {
       digitalWrite(SCK_PIN, LOW);
@@ -265,7 +301,7 @@ void loop()
   clock_display[4] = s/10;
   clock_display[5] = s%10;
 
-  // Display separator bars 
+  // Display separator bars
   int clock_dots[6] = {0, 0, 0, 0, 0, 0};
 
   switch (clock_bar_mode) {
@@ -273,11 +309,11 @@ void loop()
       // No dots to show
       break;
     case 1:
-      clock_dots[2] = tv.tv_usec >= 500000; 
+      clock_dots[2] = tv.tv_usec >= 500000;
       clock_dots[4] = !clock_dots[2];
       break;
     case 2:
-      clock_dots[2] = tv.tv_usec >= 500000; 
+      clock_dots[2] = tv.tv_usec >= 500000;
       clock_dots[4] = clock_dots[2];
       break;
     case 3:
@@ -302,7 +338,7 @@ void loop()
     show_disply(clock_display, clock_dots);
     delay( (r%(MAX_BRIGHTNESS-clock_brightness))*BLINK_TIME/MAX_BRIGHTNESS );
   }
-  
+
   // Web UI tick.
   ui.tick();
 }
@@ -358,7 +394,7 @@ time_t getNtpTime()
       secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
       secsSince1900 |= (unsigned long)packetBuffer[43];
       secsSince1900 = secsSince1900 - 2208988800UL + clock_tz * SECS_PER_HOUR;
-      
+
       log_printf("Receive NTP Response %lu\n", (unsigned long)secsSince1900);
 
       tm *ttm = localtime(&secsSince1900);
@@ -367,7 +403,7 @@ time_t getNtpTime()
       myRTC.setHour(ttm->tm_hour);
 
       set_clock_time(ttm->tm_hour, ttm->tm_min, ttm->tm_sec);
- 
+
       return secsSince1900;
     }
   }
@@ -425,7 +461,7 @@ void build()
   GP.FORM_END();
 
   GP.FORM_BEGIN("/settime");
- 
+
   time_t t = time(NULL);
   tm *ttm = localtime(&t);
   myRTC.setSecond(ttm->tm_sec);
