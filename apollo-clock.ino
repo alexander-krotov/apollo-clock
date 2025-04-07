@@ -244,8 +244,6 @@ void show_disply(int *display, int *dots)
       d |= 1;
     }
 #endif
-
-
     for (j=0; j<8; j++) {
       digitalWrite(SCK_PIN, LOW);
       digitalWrite(ONE_PIN, LOW);
@@ -527,7 +525,7 @@ void action(GyverPortal& p)
 
     n = ui.getBool("clock_use_rtc");
     if (n>=0 && n<=1) {
-      clock_use_ntp = n;
+      clock_use_rtc = n;
     }
 
     String s = ui.getString("clock_ntp_server");
