@@ -2,7 +2,7 @@
 
 This clock works best when connected to Wi-Fi. Below you’ll find step-by-step instructions for connecting it to your home network.
 
-*(Instructions in Russian are available at the bottom of this page.)*
+*([Instructions in Russian](https://github.com/alexander-krotov/apollo-clock/blob/main/setup.md#%D0%B8%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8-%D0%BF%D0%BE-%D0%BD%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B5) are available at the bottom of this page.)*
 
 ---
 
