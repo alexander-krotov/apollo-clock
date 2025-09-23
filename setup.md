@@ -1,59 +1,80 @@
-# Setup instructions
+# Setup Instructions
 
-This clock works best when connected to WiFi. Here you can find a detailed description of how to connect it to the home WiFi network.
+This clock works best when connected to Wi-Fi. Below you’ll find step-by-step instructions for connecting it to your home network.
+*(Instructions in Russian are available at the bottom of this page.)*
 
-Same instruction in Russian are in the buttom of this page.
+---
 
-## First setup
+## First Setup
 
-When turned on for the first time the clock displays "888888" and starts its own wifi access point called "NixieClock". This AP is visible for 1 minute, and you can connect to
-it from computer or phone, and then access the clock setup with url http://192.168.4.1 (note, http:, not https:).
-I recommend using a computer to connect to the clock, my Adndoid phone with Firefox refuses to work.
+When powered on for the first time, the clock displays `888888` and creates its own Wi-Fi access point (AP) named **NixieClock**.
+
+* The AP is visible for **1 minute**.
+* Connect to it from a computer or phone, then open [http://192.168.4.1](http://192.168.4.1) in your browser (**note:** `http`, not `https`).
+* Using a computer is recommended, as some Android devices (e.g., Firefox on Android) may not work reliably.
+
+---
+
+## Wi-Fi Manadger
 
 ![WiFi Captive Portal Homepage](http://i.imgur.com/YPvW9eql.png)
 
-You should see the WiFi Manager front page in the browser. Next click "Configure WiFi", you will see something similar to:
+You should now see the **WiFiManager** homepage.
+
+1. Click **“Configure WiFi”**.
+2. Select your home network from the list, or enter the SSID manually if it is hidden.
+3. Enter your network password.
+4. Click **“Save”**.
 
 ![clock text](https://github.com/alexander-krotov/apollo-clock/blob/main/wifiselect.png?raw=true)
 
-There you can choose your home network (click on its name), or enter the network (ssid) name manually (in case it is not configured visible).
-You also need to enter the network password.
+The clock will then:
 
-Once you click "Save" the clock will try to connect to the WiFi network. When connected the clock will run its assigned IP address (something like "192 168 74 182") on the display,
-and after that tries to get the time from the Internet, and finally starts to work as a clock (show the time). It might take a couple of seconds to get the time.
+* Connect to your Wi-Fi network.
+* Display its assigned IP address (e.g., `192.168.74.182`).
+* Fetch the current time from the internet.
+* Start running as a regular clock. *(This may take a few seconds.)*
 
-If 1 minute was not enough to complete the setup you can power off the clock and start from scratch.
+If the one-minute setup window expires, simply power off the clock and try again.
 
-Should you need more details about clock initial WiFi setup, you can refer it to WiFi Manager documentation: https://github.com/tzapu/WiFiManager
+For more details on Wi-Fi setup, refer to the [WiFiManager documentation](https://github.com/tzapu/WiFiManager).
 
-## Clock is configured
+---
 
-Next time you power on the clock it will try to connect to the known WiFi network automatically. If it fails to connect (network is not available) it starts the same
-configuration AP NixieClock and will wait for the new network setup.
+## After Setup
 
-If the previously configured network is available, the clock will again run its assigned IP address on the display (something like "192 168 74 182") and then show the current time.
+On the next startup, the clock will automatically reconnect to the saved Wi-Fi network.
 
-## Clock setting update
+* If the network is unavailable, it will start the **NixieClock** AP again and wait for a new setup.
+* If the connection succeeds, the clock will briefly show its IP address, then display the current time.
 
-Clock has several configurable settings. You can access the clock config page using a url like http://192.168.74.182 (note http: not https:). The actual IP address might be different  
-in your network, you should use the one the clock did show when powered on (you may want to write it down). Alternatively if your WiFi router shows the device names and their I
-addresses, you can find it there: the clock device name should be something like "esp32c3-357010".
+---
 
-Clock setup page looks like:
+## Updating Clock Settings
+
+The clock has several configurable options accessible through its configuration page.
 
 ![clock text](https://github.com/alexander-krotov/apollo-clock/blob/main/config.png?raw=true)
 
-Here you can update
-- the timezone: 2 for Helsinki, 0 for London, Winter time. You might want to change it for summer time shift
-- display brightness: 16 is maximal brightness. On smaller brightness levels the tubes are nor gradually dimmed, they start to blink instead
-- 12/24 mode - preferred time format. the clock does not have AM/PM indication
-- leading 0: preferred time format 02:13:14/2:13:14
-- bar mode: separators bars mode. Bar could be set alway on, always off, blinking synchronously or blinking asynchronously
-- use NTP: clock will try to get the time from the Internet (using NTP protocol)
-- use RTC: clock has onboard Real-Time clock, that keeps the time in case WiFi is not available (backup coin battery is needed to keep the time when it is not powered from USB)
-- NTP server name to synchronize time from. fi.pool.ntp.org and uk.pool.ntp.org are ok, or you can set any other NTP server name if you know what it is.
+1. Open your browser and navigate to the clock’s IP address, e.g., http://192.168.74.182
 
-Click "Update" to update the settings. Settings are stored to clock memory and survive over powering off.
+   * The IP address is shown on the display at startup.
+   * Alternatively, check your router’s device list: the clock should appear as something like `esp32c3-357010`.
+
+2. The setup page allows you to adjust:
+
+   * **Timezone** (e.g., `2` for Helsinki, `0` for London, winter time); update manually for daylight savings.
+   * **Display brightness** (max: `16`; lower values cause blinking instead of smooth dimming).
+   * **12/24-hour format** (no AM/PM indicator).
+   * **Leading zero** (choose between `02:13:14` and `2:13:14`).
+   * **Separator bar mode** (always on, always off, synchronous blink, or asynchronous blink).
+   * **Use NTP** (synchronize time via the Internet).
+   * **Use RTC** (keep time with the onboard Real-Time Clock; requires a backup coin battery).
+   * **NTP server** (e.g., `fi.pool.ntp.org`, `uk.pool.ntp.org`, or a custom server).
+
+3. Click **“Update”** to save your settings.
+
+   * All changes are stored in memory and will persist after power-off.
 
 ## Первоначальная настройка
 
