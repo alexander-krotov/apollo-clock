@@ -1,4 +1,4 @@
-// Apollo DS-2300 clock with ESP32 C3 super mini
+// Apollo DS-2300 clock with ESP32 C3 Super Mini
 //
 // https://github.com/alexander-krotov/apollo-clock
 //
@@ -25,7 +25,7 @@
 #define SCK_PIN 2
 #define ONE_PIN 1
 
-// DS3231 pins and speeed
+// DS3231 pins and speed
 #define SDA_PIN 8
 #define SCL_PIN 9
 #define WIRE_SPEED 100000
@@ -52,7 +52,7 @@ unsigned char clock_bar_mode = 0;   // bar mode
 unsigned char clock_use_ntp = true;  // Use NTP switch
 unsigned char clock_use_rtc = true;  // Use RTC switch
 
-// Clock eeprom data address.
+// Clock EEPROM data address.
 const int eeprom_addr=12;
 
 // If we do not have WiFi we wait 60 seconds in the configuration portal.
@@ -64,7 +64,7 @@ DS3231 myRTC;
 // Web interface
 GyverPortal ui;
 
-// Initialize the network.
+// Initialize the network (Wi-Fi connection).
 bool initialize_network()
 {
   WiFiManager wm;
@@ -110,13 +110,13 @@ void get_time_from_rtc()
   }
 }
 
-// the setup function runs once when you press reset or power the board
+// The setup function runs once when you press reset or power the board
 void setup()
 {
   Wire.begin();
   Wire.setClock(WIRE_SPEED);
 
-  // initialize digital pin LED_BUILTIN as an output.
+  // Initialize digital pin LED_BUILTIN as an output.
   pinMode(SER_PIN, OUTPUT);
   pinMode(RCK_PIN, OUTPUT);
   pinMode(SCK_PIN, OUTPUT);
@@ -124,24 +124,28 @@ void setup()
 
   EEPROM.begin(100);
 
+  // Read settings from EEPROM
   read_eeprom_data();
 
   log_printf("\ndoing setup: clock_tz=%d clock_brightness=%d\n", clock_tz, clock_brightness);
 
+  // Set time from RTC
   get_time_from_rtc();
 
+  // Initialize network and UI
   if (initialize_network()) {
     IPAddress myIP = WiFi.localIP();
     String ip_addr_str = myIP.toString();
     log_printf("AP IP address: %s\n", ip_addr_str.c_str());
     run_string_on_display(ip_addr_str.c_str());
 
-    // start server portal
+    // Start server portal
     ui.attachBuild(build);
     ui.attach(action);
     ui.start();
     log_printf("setup ui started\n");
 
+    // Fetch NTP time if enabled
     if (clock_use_ntp) {
       getNtpTime();
     }
@@ -186,6 +190,7 @@ void write_eeprom_data()
 // 4   16     64    16
 //   8           32
 #if REVERSE
+// Segment bits for digits 0-9 (reverse PCB)
 static const int digits[] = {
   0b01111011, // 0
   0b00001001, // 1
@@ -199,6 +204,7 @@ static const int digits[] = {
   0b01001111  // 9
 };
 #else
+// Segment bits for digits 0-9 (straight PCB)
 static const int digits[] = {
   0b11011110, // 0
   0b10010000, // 1
@@ -255,7 +261,7 @@ void show_disply(int *display, int *dots)
   digitalWrite(RCK_PIN, HIGH);
 }
 
-// the loop function runs over and over again forever
+// The loop function runs over and over again forever
 void loop()
 {
   struct timeval tv;
@@ -268,21 +274,24 @@ void loop()
     static time_t s;
     if (s!=tv.tv_sec) {
       s = tv.tv_sec;
+      // Log time every 100 seconds
       if (s%100 == 0) {
         log_printf("LOOP %d:%02d:%02d\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
       }
 
+      // Periodically update time from NTP if enabled
       if (clock_use_ntp && s%NTP_UPDATE_INTERVAL==0) {
         getNtpTime();
       }
     }
   }
 
+  // Digits to show on the display.
   int clock_display[6];
 
   // By default show current time
   int h = tm->tm_hour;
-  if (clock_12 && h > 12) {
+  if (clock_12 && h > 12) {  // Convert to 12h format if enabled
     h -= 12;
   }
   if (clock_leading_0 || h>=10) {
@@ -302,19 +311,23 @@ void loop()
   // Display separator bars
   int clock_dots[6] = {0, 0, 0, 0, 0, 0};
 
+  // Bar mode logic for separating digits visually
   switch (clock_bar_mode) {
     case 0:
       // No dots to show
       break;
     case 1:
+      // Asynchronous bar blink between minutes and seconds
       clock_dots[2] = tv.tv_usec >= 500000;
       clock_dots[4] = !clock_dots[2];
       break;
     case 2:
+      // Synchronous bar blink between hours and minutes
       clock_dots[2] = tv.tv_usec >= 500000;
       clock_dots[4] = clock_dots[2];
       break;
     case 3:
+      // Bars always on
       clock_dots[2] = clock_dots[4] = 1;
       break;
   }
@@ -323,6 +336,7 @@ void loop()
 
   delay(BLINK_TIME);
 
+  // Dim the display if brightness < MAX_BRIGHTNESS
   if (clock_brightness < MAX_BRIGHTNESS) {
     unsigned int r = rand();
     // randomly select digits to blank.
@@ -341,19 +355,20 @@ void loop()
   ui.tick();
 }
 
-// Display string as running display string
+// Display string as running display string across the digits
 void run_string_on_display(const char *str)
 {
-    int display[6];
-    int clock_dots[6] = {0};
+    int display[6]; // Display digits
+    int clock_dots[6] = {0};  // Display dots (not set in the function)
     int len = strlen(str);
 
     log_printf("run_string_on_display: str=%s len=%d\n", str, len);
 
+    // Scroll string over display
     for (int s=-6; s<=len; s++) {
       for (int i=0; i<6; i++) {
         if (i+s>=0 && i+s<len && str[i+s]>='0' && str[i+s]<='9') {
-          // character fitst to the display and it is betweern 0 and 9.
+          // character fits to the display and is between 0 and 9.
           display[i] = str[i+s]-'0';
         } else {
           display[i] = ' ';
@@ -365,15 +380,16 @@ void run_string_on_display(const char *str)
     }
 }
 
-// Following code is derived from TimeNTP sample
+// NTP support code (adapted from TimeNTP sample)
 WiFiUDP Udp;
 unsigned int localPort = 8888;  // local port to listen for UDP packets
 const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
 
+// Get current time from NTP server
 time_t getNtpTime()
 {
-  IPAddress ntpServerIP; // NTP server's ip address
+  IPAddress ntpServerIP; // NTP server's IP address
 
   while (Udp.parsePacket() > 0) ; // discard any previously received packets
   WiFi.hostByName(ntpServerName, ntpServerIP);
@@ -391,10 +407,12 @@ time_t getNtpTime()
       secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
       secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
       secsSince1900 |= (unsigned long)packetBuffer[43];
+      // Convert NTP time to UNIX time and apply timezone offset
       secsSince1900 = secsSince1900 - 2208988800UL + clock_tz * SECS_PER_HOUR;
 
       log_printf("Receive NTP Response %lu\n", (unsigned long)secsSince1900);
 
+      // Update RTC and system time with received NTP time
       tm *ttm = localtime(&secsSince1900);
       myRTC.setSecond(ttm->tm_sec);
       myRTC.setMinute(ttm->tm_min);
@@ -409,7 +427,7 @@ time_t getNtpTime()
   return 0;
 }
 
-// send an NTP request to the time server at the given address
+// Send an NTP request to the time server at the given address
 void sendNTPpacket(IPAddress &address)
 {
   // set all bytes in the buffer to 0
@@ -432,7 +450,7 @@ void sendNTPpacket(IPAddress &address)
   Udp.endPacket();
 }
 
-// Create a configuration form
+// Create a configuration form for the web UI
 void build()
 {
   log_printf("BUILD\n");
@@ -443,6 +461,7 @@ void build()
   GP.THEME(GP_DARK);
   GP.FORM_BEGIN("/update");
 
+  // Main config block with timezone, brightness, modes, etc.
   GP_MAKE_BLOCK_TAB(
     "Clock config",
     GP_MAKE_BOX(GP.LABEL("TimeZone shift:"); GP.NUMBER("clock_tz", "", clock_tz););
@@ -458,8 +477,10 @@ void build()
 
   GP.FORM_END();
 
+  // Time setting form
   GP.FORM_BEGIN("/settime");
 
+  // Get current time for the form
   time_t t = time(NULL);
   tm *ttm = localtime(&t);
   myRTC.setSecond(ttm->tm_sec);
@@ -479,17 +500,19 @@ void build()
   GP.BUILD_END();
 }
 
+// Handle actions from GyverPortal web UI
 void action(GyverPortal& p)
 {
   log_printf("ACTION\n");
 
+  // Handle config update form
   if (p.form("/update")) {
     int n;
     bool update_time = false;
 
     log_printf("ACTION update\n");
 
-    // Reed the new values, and check them for sanity.
+    // Read the new values, and check them for sanity.
     n = ui.getInt("clock_tz");
     if (n>=-12 && n<=12) {
       if (n!=clock_tz) {
@@ -533,10 +556,11 @@ void action(GyverPortal& p)
       strncpy(ntpServerName, s.c_str(), sizeof(ntpServerName)-1);
     }
 
+    // Save new settings to EEPROM
     write_eeprom_data();
 
+    // If timezone changed, update system time
     if (update_time) {
-      // Timezone changed, we shoule change the system time.
       if (clock_use_ntp) {
         getNtpTime();
       } else if (clock_use_rtc) {
@@ -545,14 +569,15 @@ void action(GyverPortal& p)
     }
   }
 
+  // Handle time setting form
   if (p.form("/settime")) {
     GPtime gptime = ui.getTime("time");
     log_printf("Action Settime: %d:%02d:%02d\n", gptime.hour, gptime.minute, gptime.second);
 
-    // Set time to RPC
-    myRTC.setSecond(gptime.hour);
+    // Set time to RTC
+    myRTC.setSecond(gptime.second);
     myRTC.setMinute(gptime.minute);
-    myRTC.setHour(gptime.second);
+    myRTC.setHour(gptime.hour);
 
     set_clock_time(gptime.hour, gptime.minute, gptime.second);
   }
