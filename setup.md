@@ -16,7 +16,7 @@ When powered on for the first time, the clock displays `888888` and creates its 
 
 ---
 
-## Wi-Fi Manadger
+## Wi-Fi Manager
 
 ![WiFi Captive Portal Homepage](http://i.imgur.com/YPvW9eql.png)
 
