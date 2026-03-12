@@ -17,7 +17,7 @@
 // PCB version:
 // 1 - "reverse" pcb: indicator tubes are on the opposite side of the control components
 // 0 - "straight" pcb: indicator tubes are on the same side as the control components
-#define REVERSE 0
+#define REVERSE 1
 
 // 74HC595 control pins
 #define SER_PIN 4
@@ -51,6 +51,7 @@ unsigned char clock_leading_0;  // Show hour leading 0
 unsigned char clock_bar_mode = 0;   // bar mode
 unsigned char clock_use_ntp = true;  // Use NTP switch
 unsigned char clock_use_rtc = true;  // Use RTC switch
+unsigned char clock_show_sec = true;
 
 // Clock EEPROM data address.
 const int eeprom_addr=12;
@@ -164,7 +165,8 @@ void read_eeprom_data()
   clock_bar_mode = EEPROM.read(eeprom_addr+4);
   clock_use_ntp = EEPROM.read(eeprom_addr+5);
   clock_use_rtc = EEPROM.read(eeprom_addr+6);
-  EEPROM.readString(eeprom_addr+7, ntpServerName, sizeof(ntpServerName)-1);
+  clock_show_sec = EEPROM.read(eeprom_addr+7);
+  EEPROM.readString(eeprom_addr+8, ntpServerName, sizeof(ntpServerName)-1);
   EEPROM.commit();
 }
 
@@ -178,7 +180,8 @@ void write_eeprom_data()
   EEPROM.write(eeprom_addr+4, clock_bar_mode);
   EEPROM.write(eeprom_addr+5, clock_use_ntp);
   EEPROM.write(eeprom_addr+6, clock_use_rtc);
-  EEPROM.writeString(eeprom_addr+7, ntpServerName);
+  EEPROM.write(eeprom_addr+7,clock_show_sec);
+  EEPROM.writeString(eeprom_addr+8, ntpServerName);
   EEPROM.commit();
 }
 
@@ -304,9 +307,14 @@ void loop()
   int m = tm->tm_min;
   clock_display[2] = m/10;
   clock_display[3] = m%10;
-  int s = tm->tm_sec;
-  clock_display[4] = s/10;
-  clock_display[5] = s%10;
+  if (clock_show_sec) {
+    int s = tm->tm_sec;
+    clock_display[4] = s/10;
+    clock_display[5] = s%10;
+  } else {
+    clock_display[4] = ' ';
+    clock_display[5] = ' ';
+  }
 
   // Display separator bars
   int clock_dots[6] = {0, 0, 0, 0, 0, 0};
@@ -330,6 +338,10 @@ void loop()
       // Bars always on
       clock_dots[2] = clock_dots[4] = 1;
       break;
+  }
+
+  if (!clock_show_sec) {
+    clock_dots[4] = 0;
   }
 
   show_disply(clock_display, clock_dots);
@@ -471,6 +483,8 @@ void build()
     GP_MAKE_BOX(GP.LABEL("Bar mode"); GP.SELECT("clock_bar_mode", "Always off, Async, Sync, Always on", clock_bar_mode););
     GP_MAKE_BOX(GP.LABEL("Use NTP"); GP.SWITCH("clock_use_ntp", clock_use_ntp ? true: false););
     GP_MAKE_BOX(GP.LABEL("Use RTC"); GP.SWITCH("clock_use_rtc", clock_use_rtc ? true: false, 0););
+    GP_MAKE_BOX(GP.LABEL("Show seconds"); GP.SWITCH("clock_show_sec", clock_show_sec ? true: false, 0););
+
     GP_MAKE_BOX(GP.LABEL("NTP Server name: "); GP.TEXT("clock_ntp_server", "local NTP server if you have", ntpServerName, "", sizeof(ntpServerName)-1););
   );
   GP.SUBMIT("UPDATE");
@@ -549,6 +563,11 @@ void action(GyverPortal& p)
     n = ui.getBool("clock_use_rtc");
     if (n>=0 && n<=1) {
       clock_use_rtc = n;
+    }
+
+    n = ui.getBool("clock_show_sec");
+    if (n>=0 && n<=1) {
+      clock_show_sec = n;
     }
 
     String s = ui.getString("clock_ntp_server");
